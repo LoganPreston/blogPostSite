@@ -33,15 +33,13 @@ app.get("/compose",function(req,res){
 
 app.post("/", function (req, res) {
   console.log(req.body);
-  console.log(req.body.composition);
   res.redirect("/");
 });
 
 app.post("/compose", function (req, res) {
-  console.log(req);
-  console.log(req.body);
-  console.log("COMPOSE");
+  console.log(req.body.title);
   console.log(req.body.composition);
+  res.redirect("/compose");
 });
 
 
