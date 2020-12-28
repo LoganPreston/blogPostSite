@@ -2,7 +2,8 @@
 
 const express = require("express");
 const bodyParser = require("body-parser");
-const lodash = require("lodash");
+const _ = require("lodash");
+const mongoose = require("mongoose");
 
 //starting content
 const homeStartingContent =
@@ -11,7 +12,7 @@ const aboutContent =
   "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
 const contactContent =
   "Scelerisque eleifend donec pretium vulputate sapien. Rhoncus urna neque viverra justo nec ultrices. Arcu dui vivamus arcu felis bibendum. Consectetur adipiscing elit duis tristique. Risus viverra adipiscing at in tellus integer feugiat. Sapien nec sagittis aliquam malesuada bibendum arcu vitae. Consequat interdum varius sit amet mattis. Iaculis nunc sed augue lacus. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Pulvinar elementum integer enim neque. Ultrices gravida dictum fusce ut placerat orci nulla. Mauris in aliquam sem fringilla ut morbi tincidunt. Tortor posuere ac ut consequat semper viverra nam libero.";
-const posts = [];
+//const posts = [];
 
 //express and ejs setup
 const app = express();
@@ -19,10 +20,32 @@ app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
+//mongoose / mongodb setup
+mongoose.connect("mongodb://localhost:27017/compositionsDB", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const compositionSchema = new mongoose.Schema({
+  title: String,
+  content: String,
+});
+
+const Composition = mongoose.model("Composition", compositionSchema);
+
 //GET requests
 //root page
 app.get("/", function (req, res) {
-  res.render("home", { home: homeStartingContent, blogPosts: posts });
+  Composition.find(function (err, posts) {
+    if (err) {
+      console.log(err);
+    }
+    if (posts.length === 0) {
+      res.render("home", { home: homeStartingContent, blogPosts: [] });
+    } else {
+      res.render("home", { home: homeStartingContent, blogPosts: posts });
+    }
+  });
 });
 
 //about page
@@ -41,11 +64,29 @@ app.get("/compose", function (req, res) {
 });
 
 //handle individual posts, find the appropriate one and handle dashes/etc.
-app.get("/posts/:postName", function (req, res) {
+app.get("/posts/:postID", function (req, res) {
+  Composition.findOne(
+    { _id: req.params.postID },
+    function (err, foundPost) {
+      if (!err) {
+        //if didn't find that post send home
+        if (!foundPost) {
+          console.log("no find");
+          res.redirect("/");
+        }
+        //found existing post, push user to it
+        else {
+          res.render("post", { singlePost: foundPost });
+        }
+      }
+    }
+  );
+  /*
   posts.forEach((post) => {
-    if (lodash.lowerCase(post.title) === lodash.lowerCase(req.params.postName))
+    if (_.lowerCase(post.title) === _.lowerCase(req.params.postName))
       res.render("post", { singlePost: post });
   });
+  */
 });
 
 //POST requests
@@ -56,8 +97,17 @@ app.post("/", function (req, res) {
 
 //post compose, add composition to post array and send to home to show it
 app.post("/compose", function (req, res) {
-  posts.push({ title: req.body.title, content: req.body.composition });
-  res.redirect("/");
+  //posts.push({ title: req.body.title, content: req.body.composition });
+  const post = new Composition({
+    title: _.lowerCase(req.body.title),
+    content: req.body.composition,
+  });
+  post.save(function(err){
+    if(!err){
+      res.redirect("/");
+    } 
+  });
+  
 });
 
 //listen on to port 3000, if upload
